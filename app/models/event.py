@@ -4,6 +4,7 @@ from app.core.database import Base
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
+
 class Event(Base):
     __tablename__ = "events"
 
@@ -31,6 +32,7 @@ class EventCreate(BaseModel):
     location: Optional[str] = None
     is_recurring: bool = False
     recurrence_pattern: Optional[str] = None
+
 
 class EventOut(EventCreate):
     id: int

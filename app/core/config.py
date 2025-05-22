@@ -1,0 +1,4 @@
+# app/core/config.py
+SECRET_KEY = "jAiTXGlrCsRlYQsmL_CSdxkmoo4TDppqwVtE3buHgcg"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30

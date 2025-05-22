@@ -1,13 +1,16 @@
 # File: app/routes/events.py
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from app.schemas.event import EventCreate, EventOut
+from app.schemas.event import EventCreate, EventOut, EventUpdate
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.event import Event
 from app.models.permission import EventPermission
 from typing import List, Optional
 from sqlalchemy import or_
+from datetime import datetime
+from app.models.user import User
+
 
 router = APIRouter()
 
@@ -67,3 +70,65 @@ def list_events(
 
     events = query.offset(offset).limit(limit).all()
     return events
+
+@router.get("/{event_id}", response_model=EventOut)
+def get_event_by_id(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Ensure user has access
+    permission = db.query(EventPermission).filter_by(
+        user_id=current_user.id, event_id=event_id
+    ).first()
+    if not permission:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    event = db.query(Event).filter_by(id=event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    return event
+
+
+@router.put("/{id}", response_model=EventOut)
+def update_event(
+    id: int,
+    event_in: EventUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    event = db.query(Event).filter(Event.id == id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    permission = db.query(EventPermission).filter_by(event_id=id, user_id=current_user.id).first()
+    if not permission or permission.role not in ["Owner", "Editor"]:
+        raise HTTPException(status_code=403, detail="You don't have permission to edit this event")
+
+    # Save current state to EventVersion
+    from app.models.event_version import EventVersion
+    version = EventVersion(
+        event_id=event.id,
+        title=event.title,
+        description=event.description,
+        location=event.location,
+        start_time=event.start_time,
+        end_time=event.end_time,
+        updated_by=current_user.id
+    )
+    db.add(version)
+
+    # Update the event
+    event.title = event_in.title
+    event.description = event_in.description
+    event.location = event_in.location
+    event.start_time = event_in.start_time
+    event.end_time = event_in.end_time
+    event.is_recurring = event_in.is_recurring
+    event.recurrence_pattern = event_in.recurrence_pattern
+
+    db.commit()
+    db.refresh(event)
+
+    return event
