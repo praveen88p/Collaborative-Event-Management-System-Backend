@@ -21,7 +21,6 @@ class Event(Base):
     owner = relationship("User", back_populates="events")
 
 
-# File: app/schemas/event.py
 
 
 class EventCreate(BaseModel):

@@ -1,4 +1,3 @@
-# File: app/routes/events.py
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from app.schemas.event import EventCreate, EventOut, EventUpdate
@@ -20,11 +19,11 @@ def create_event(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    # Validate time logic
+    
     if event_in.end_time <= event_in.start_time:
         raise HTTPException(status_code=400, detail="End time must be after start time")
 
-    # Create event
+    
     event = Event(
         title=event_in.title,
         description=event_in.description,
@@ -39,7 +38,6 @@ def create_event(
     db.commit()
     db.refresh(event)
 
-    # Add permission entry as Owner
     perm = EventPermission(user_id=current_user.id, event_id=event.id, role="Owner")
     db.add(perm)
     db.commit()
@@ -57,10 +55,8 @@ def list_events(
     start_after: Optional[datetime] = None,
     end_before: Optional[datetime] = None,
 ):
-    # Join with EventPermission to filter by access
     query = db.query(Event).join(EventPermission).filter(EventPermission.user_id == current_user.id)
 
-    # Optional filters
     if title:
         query = query.filter(Event.title.ilike(f"%{title}%"))
     if start_after:
@@ -77,7 +73,6 @@ def get_event_by_id(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Ensure user has access
     permission = db.query(EventPermission).filter_by(
         user_id=current_user.id, event_id=event_id
     ).first()
@@ -106,7 +101,7 @@ def update_event(
     if not permission or permission.role not in ["Owner", "Editor"]:
         raise HTTPException(status_code=403, detail="You don't have permission to edit this event")
 
-    # Save current state to EventVersion
+   
     from app.models.event_version import EventVersion
     version = EventVersion(
         event_id=event.id,
@@ -119,7 +114,7 @@ def update_event(
     )
     db.add(version)
 
-    # Update the event
+   
     event.title = event_in.title
     event.description = event_in.description
     event.location = event_in.location
